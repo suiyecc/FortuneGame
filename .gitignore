@@ -37,3 +37,8 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# API测试文件
+test_gemini_api.bat
+test_gemini_api.ps1
+test_gemini_api_en.bat

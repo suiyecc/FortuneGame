@@ -1,6 +1,6 @@
 // Google Gemini API配置
 const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; // 请替换为你的API密钥
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 // API状态
 let useAI = false;
