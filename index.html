@@ -18,6 +18,22 @@
                 <div class="star">🌟</div>
             </div>
             <p class="subtitle">通过8道趣味问题，发现你的MBTI人格与今日运势</p>
+            
+            <!-- AI模式设置 -->
+            <div class="ai-settings">
+                <div class="ai-toggle">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="ai-mode-toggle">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-text">AI智能模式 🤖</span>
+                    </label>
+                </div>
+                <div id="api-key-section" class="api-key-section" style="display: none;">
+                    <input type="password" id="api-key-input" placeholder="请输入你的Gemini API密钥" class="api-input">
+                    <div class="api-hint">💡 开启AI模式后，将为你生成专属问题和个性化运势预测</div>
+                </div>
+            </div>
+            
             <button id="start-btn" class="cute-button">开始占卜 💫</button>
         </div>
     </div>

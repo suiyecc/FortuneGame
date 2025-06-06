@@ -1,4 +1,13 @@
-// MBTI测试数据
+// Google Gemini API配置
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; // 请替换为你的API密钥
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+
+// API状态
+let useAI = false;
+let aiQuestions = [];
+let aiResults = {};
+
+// MBTI测试数据（默认问题）
 const questions = [
     {
         id: 1,
@@ -242,6 +251,7 @@ const mbtiResults = {
 let currentQuestion = 0;
 let answers = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
 let lastChoice = '';
+let currentQuestions = questions; // 当前使用的问题集
 
 // DOM元素
 const welcomePage = document.getElementById('welcome-page');
@@ -259,11 +269,127 @@ const shareBtn = document.getElementById('share-btn');
 const restartBtn = document.getElementById('restart-btn');
 const downloadBtn = document.getElementById('download-btn');
 
+// AI模式相关DOM元素
+const aiModeToggle = document.getElementById('ai-mode-toggle');
+const apiKeySection = document.getElementById('api-key-section');
+const apiKeyInput = document.getElementById('api-key-input');
+
+// 调用Gemini API生成问题
+async function generateAIQuestions() {
+    const apiKey = window.GEMINI_API_KEY || GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
+        console.log('未配置Gemini API密钥，使用默认问题');
+        return false;
+    }
+
+    try {
+        const prompt = `请为MBTI人格测试生成8道有趣的问题，每道题要测试不同的维度。格式要求：
+        1. 每道题包含：问题文本、选项A（倾向某个维度）、选项B（倾向相反维度）
+        2. 维度分配：前2题测试E/I，第3-4题测试S/N，第5-6题测试T/F，第7-8题测试J/P
+        3. 问题要贴近年轻女性生活场景，语言可爱有趣
+        4. 每个选项后面加上合适的emoji
+        
+        请严格按照以下JSON格式返回：
+        {
+            "questions": [
+                {
+                    "id": 1,
+                    "dimension": "EI",
+                    "question": "问题文本",
+                    "optionA": {"text": "选项A文本 emoji", "value": "E"},
+                    "optionB": {"text": "选项B文本 emoji", "value": "I"}
+                }
+            ]
+        }`;
+
+        const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }]
+            })
+        });
+
+        const data = await response.json();
+        const generatedText = data.candidates[0].content.parts[0].text;
+        
+        // 提取JSON部分
+        const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const questionsData = JSON.parse(jsonMatch[0]);
+            aiQuestions = questionsData.questions;
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('生成AI问题失败:', error);
+        return false;
+    }
+}
+
+// 调用Gemini API生成个性化结果
+async function generatePersonalizedResult(mbtiType, userAnswers) {
+    const apiKey = window.GEMINI_API_KEY || GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
+        return null;
+    }
+
+    try {
+        const prompt = `用户的MBTI类型是${mbtiType}，请为她生成今日个性化运势预测。要求：
+        1. 语言风格：可爱、温暖、正能量，适合年轻女性
+        2. 包含：爱情运势、工作运势、今日小贴士
+        3. 结合当前日期和季节特点
+        4. 字数控制在每项30字以内
+        
+        请按照以下JSON格式返回：
+        {
+            "love": "爱情运势文本",
+            "work": "工作运势文本", 
+            "tip": "今日小贴士文本"
+        }`;
+
+        const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }]
+            })
+        });
+
+        const data = await response.json();
+        const generatedText = data.candidates[0].content.parts[0].text;
+        
+        // 提取JSON部分
+        const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        return null;
+    } catch (error) {
+        console.error('生成个性化结果失败:', error);
+        return null;
+    }
+}
+
 // 初始化游戏
 function initGame() {
     currentQuestion = 0;
     answers = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
     lastChoice = '';
+    currentQuestions = questions; // 重置为默认问题
+    useAI = false;
     showWelcomePage();
 }
 
@@ -292,13 +418,13 @@ function showResultPage() {
 
 // 加载问题
 function loadQuestion() {
-    if (currentQuestion >= questions.length) {
+    if (currentQuestion >= currentQuestions.length) {
         showResultPage();
         return;
     }
 
-    const question = questions[currentQuestion];
-    const progress = ((currentQuestion + 1) / questions.length) * 100;
+    const question = currentQuestions[currentQuestion];
+    const progress = ((currentQuestion + 1) / currentQuestions.length) * 100;
     
     progressBar.style.width = `${progress}%`;
     currentQElement.textContent = currentQuestion + 1;
@@ -313,7 +439,7 @@ function loadQuestion() {
 
 // 选择答案
 function selectAnswer(choice) {
-    const question = questions[currentQuestion];
+    const question = currentQuestions[currentQuestion];
     const selectedValue = choice === 'A' ? question.optionA.value : question.optionB.value;
     
     answers[selectedValue]++;
@@ -382,7 +508,7 @@ function generateStars(rating) {
 }
 
 // 计算并显示结果
-function calculateAndShowResult() {
+async function calculateAndShowResult() {
     const mbtiType = calculateMBTI();
     const result = mbtiResults[mbtiType];
     
@@ -390,20 +516,42 @@ function calculateAndShowResult() {
     const fortuneVariation = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
     const finalFortune = Math.max(1, Math.min(5, result.baseFortune + fortuneVariation));
     
-    // 显示结果
+    // 显示基础结果
     document.getElementById('mbti-type').textContent = mbtiType;
     document.getElementById('mbti-title').textContent = result.title;
     document.getElementById('character-emoji').textContent = result.emoji;
     document.getElementById('fortune-stars').textContent = generateStars(finalFortune);
-    document.getElementById('love-fortune').textContent = result.love;
-    document.getElementById('work-fortune').textContent = result.work;
     document.getElementById('lucky-color').textContent = result.luckyColor;
     document.getElementById('lucky-item').textContent = result.luckyItem;
-    document.getElementById('daily-tip').textContent = result.tip;
+    
+    // 尝试获取AI个性化结果
+    if (useAI) {
+        document.getElementById('love-fortune').textContent = '正在为你生成专属运势...';
+        document.getElementById('work-fortune').textContent = '正在为你生成专属运势...';
+        document.getElementById('daily-tip').textContent = '正在为你生成专属建议...';
+        
+        const personalizedResult = await generatePersonalizedResult(mbtiType, answers);
+        if (personalizedResult) {
+            document.getElementById('love-fortune').textContent = personalizedResult.love;
+            document.getElementById('work-fortune').textContent = personalizedResult.work;
+            document.getElementById('daily-tip').textContent = personalizedResult.tip;
+        } else {
+            // 如果AI生成失败，使用默认结果
+            document.getElementById('love-fortune').textContent = result.love;
+            document.getElementById('work-fortune').textContent = result.work;
+            document.getElementById('daily-tip').textContent = result.tip;
+        }
+    } else {
+        // 使用默认结果
+        document.getElementById('love-fortune').textContent = result.love;
+        document.getElementById('work-fortune').textContent = result.work;
+        document.getElementById('daily-tip').textContent = result.tip;
+    }
     
     // 添加幸运数字
     const luckyNumber = Math.floor(Math.random() * 99) + 1;
-    document.getElementById('daily-tip').textContent += ` 今日幸运数字：${luckyNumber}`;
+    const currentTip = document.getElementById('daily-tip').textContent;
+    document.getElementById('daily-tip').textContent = currentTip + ` 今日幸运数字：${luckyNumber}`;
 }
 
 // 生成分享图片内容
@@ -425,8 +573,72 @@ function generateShareContent() {
     `;
 }
 
+// AI模式切换处理
+function handleAIModeToggle() {
+    const isAIMode = aiModeToggle.checked;
+    if (isAIMode) {
+        apiKeySection.style.display = 'block';
+    } else {
+        apiKeySection.style.display = 'none';
+        useAI = false;
+    }
+}
+
+// 启动游戏（支持AI模式）
+async function startGame() {
+    const isAIMode = aiModeToggle.checked;
+    
+    if (isAIMode) {
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            alert('请先输入Gemini API密钥！');
+            return;
+        }
+        
+        // 更新全局API密钥
+        window.GEMINI_API_KEY = apiKey;
+        
+        // 显示加载状态
+        startBtn.textContent = '正在生成专属问题... 🤖';
+        startBtn.disabled = true;
+        
+        try {
+            // 临时更新API密钥用于生成问题
+            const originalKey = GEMINI_API_KEY;
+            window.GEMINI_API_KEY = apiKey;
+            
+            const success = await generateAIQuestions();
+            if (success && aiQuestions.length > 0) {
+                currentQuestions = aiQuestions;
+                useAI = true;
+                showQuestionPage();
+            } else {
+                alert('AI问题生成失败，将使用默认问题进行测试');
+                currentQuestions = questions;
+                useAI = false;
+                showQuestionPage();
+            }
+        } catch (error) {
+            console.error('启动AI模式失败:', error);
+            alert('AI模式启动失败，将使用默认问题进行测试');
+            currentQuestions = questions;
+            useAI = false;
+            showQuestionPage();
+        } finally {
+            startBtn.textContent = '开始占卜 💫';
+            startBtn.disabled = false;
+        }
+    } else {
+        // 普通模式
+        currentQuestions = questions;
+        useAI = false;
+        showQuestionPage();
+    }
+}
+
 // 事件监听器
-startBtn.addEventListener('click', showQuestionPage);
+aiModeToggle.addEventListener('change', handleAIModeToggle);
+startBtn.addEventListener('click', startGame);
 optionA.addEventListener('click', () => selectAnswer('A'));
 optionB.addEventListener('click', () => selectAnswer('B'));
 restartBtn.addEventListener('click', initGame);

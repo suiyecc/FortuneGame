@@ -80,8 +80,111 @@ body {
 .subtitle {
     color: #666;
     font-size: 1rem;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     line-height: 1.5;
+}
+
+/* AI设置样式 */
+.ai-settings {
+    margin: 20px 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 15px;
+    border: 2px dashed #ff9a9e;
+}
+
+.ai-toggle {
+    margin-bottom: 15px;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    gap: 10px;
+}
+
+.toggle-label input[type="checkbox"] {
+    display: none;
+}
+
+.toggle-slider {
+    width: 50px;
+    height: 25px;
+    background: #ddd;
+    border-radius: 25px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 21px;
+    height: 21px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-slider {
+    background: linear-gradient(45deg, #ff9a9e, #fecfef);
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-slider::before {
+    transform: translateX(25px);
+}
+
+.toggle-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #666;
+}
+
+.api-key-section {
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.api-input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #ff9a9e;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.9);
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.api-input:focus {
+    outline: none;
+    border-color: #c44569;
+    box-shadow: 0 0 10px rgba(255, 154, 158, 0.3);
+}
+
+.api-input::placeholder {
+    color: #999;
+}
+
+.api-hint {
+    font-size: 0.8rem;
+    color: #666;
+    text-align: center;
+    line-height: 1.4;
 }
 
 /* 按钮样式 */
