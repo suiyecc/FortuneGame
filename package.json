@@ -5,7 +5,7 @@
   "main": "index.html",
   "scripts": {
     "dev": "python -m http.server 8000",
-    "build": "if not exist public mkdir public && copy *.html public\\ && copy *.css public\\ && copy *.js public\\ && if exist api xcopy api public\\api\\ /E /I /Y"
+    "build": "mkdir -p public && cp *.html *.css *.js public/ && cp -r api public/ 2>/dev/null || true"
   },
   "keywords": [
     "mbti",
