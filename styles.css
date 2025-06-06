@@ -45,11 +45,43 @@ body {
 .title {
     font-size: 2.5rem;
     font-weight: 700;
+    margin-bottom: 20px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    animation: crystalGlow 3s ease-in-out infinite;
+}
+
+.title-text {
     background: linear-gradient(45deg, #ff6b9d, #c44569, #9b59b6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    margin-bottom: 20px;
+}
+
+.title-emoji {
+    font-size: 2.8rem;
+    filter: drop-shadow(0 0 8px rgba(138, 43, 226, 0.4));
+    animation: emojiFloat 2s ease-in-out infinite alternate;
+}
+
+@keyframes emojiFloat {
+    0% { transform: translateY(0px) rotate(0deg); }
+    100% { transform: translateY(-5px) rotate(5deg); }
+}
+
+/* 为标题中的emoji添加特殊动画 */
+@keyframes crystalGlow {
+    0%, 100% { 
+        filter: drop-shadow(0 0 5px rgba(138, 43, 226, 0.3));
+        transform: scale(1);
+    }
+    50% { 
+        filter: drop-shadow(0 0 15px rgba(138, 43, 226, 0.6));
+        transform: scale(1.05);
+    }
 }
 
 .star-animation {
