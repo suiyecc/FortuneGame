@@ -1,11 +1,71 @@
 // Google Gemini API配置
-const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY'; // 请替换为你的API密钥
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 // API状态
 let useAI = false;
 let aiQuestions = [];
 let aiResults = {};
+let GEMINI_API_KEY = '';
+
+// 加密工具函数
+const CryptoUtils = {
+    // 简单的加密函数（基于Base64和简单替换）
+    encrypt: function(text) {
+        if (!text) return '';
+        // 先进行Base64编码
+        let encoded = btoa(text);
+        // 简单的字符替换加密
+        let encrypted = encoded.split('').map(char => {
+            return String.fromCharCode(char.charCodeAt(0) + 3);
+        }).join('');
+        return encrypted;
+    },
+    
+    // 解密函数
+    decrypt: function(encryptedText) {
+        if (!encryptedText) return '';
+        try {
+            // 反向字符替换
+            let decrypted = encryptedText.split('').map(char => {
+                return String.fromCharCode(char.charCodeAt(0) - 3);
+            }).join('');
+            // Base64解码
+            return atob(decrypted);
+        } catch (error) {
+            console.error('解密失败:', error);
+            return '';
+        }
+    },
+    
+    // 保存加密的API密钥
+    saveApiKey: function(apiKey) {
+        if (!apiKey) return false;
+        try {
+            const encrypted = this.encrypt(apiKey);
+            localStorage.setItem('mbti_api_key', encrypted);
+            return true;
+        } catch (error) {
+            console.error('保存API密钥失败:', error);
+            return false;
+        }
+    },
+    
+    // 获取解密的API密钥
+    getApiKey: function() {
+        try {
+            const encrypted = localStorage.getItem('mbti_api_key');
+            return encrypted ? this.decrypt(encrypted) : '';
+        } catch (error) {
+            console.error('获取API密钥失败:', error);
+            return '';
+        }
+    },
+    
+    // 清除保存的API密钥
+    clearApiKey: function() {
+        localStorage.removeItem('mbti_api_key');
+    }
+};
 
 // MBTI测试数据（默认问题）
 const questions = [
@@ -273,6 +333,8 @@ const downloadBtn = document.getElementById('download-btn');
 const aiModeToggle = document.getElementById('ai-mode-toggle');
 const apiKeySection = document.getElementById('api-key-section');
 const apiKeyInput = document.getElementById('api-key-input');
+const apiKeySaved = document.getElementById('api-key-saved');
+const clearApiKeyBtn = document.getElementById('clear-api-key');
 
 // 调用Gemini API生成问题
 async function generateAIQuestions() {
@@ -577,9 +639,19 @@ function generateShareContent() {
 function handleAIModeToggle() {
     const isAIMode = aiModeToggle.checked;
     if (isAIMode) {
-        apiKeySection.style.display = 'block';
+        // 检查是否已有保存的API密钥
+        const savedApiKey = CryptoUtils.getApiKey();
+        if (savedApiKey) {
+            GEMINI_API_KEY = savedApiKey;
+            apiKeySection.style.display = 'none'; // 有保存的密钥时隐藏输入框
+            if (apiKeySaved) apiKeySaved.style.display = 'block'; // 显示已保存密钥的提示
+        } else {
+            apiKeySection.style.display = 'block'; // 没有保存的密钥时显示输入框
+            if (apiKeySaved) apiKeySaved.style.display = 'none'; // 隐藏已保存密钥的提示
+        }
     } else {
         apiKeySection.style.display = 'none';
+        if (apiKeySaved) apiKeySaved.style.display = 'none';
         useAI = false;
     }
 }
@@ -589,10 +661,21 @@ async function startGame() {
     const isAIMode = aiModeToggle.checked;
     
     if (isAIMode) {
-        const apiKey = apiKeyInput.value.trim();
+        let apiKey = GEMINI_API_KEY; // 先尝试使用已加载的密钥
+        
+        // 如果没有已加载的密钥，检查输入框
         if (!apiKey) {
-            alert('请先输入Gemini API密钥！');
-            return;
+            apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                alert('请先输入Gemini API密钥！');
+                return;
+            }
+            
+            // 保存新输入的API密钥
+            if (CryptoUtils.saveApiKey(apiKey)) {
+                GEMINI_API_KEY = apiKey;
+                console.log('API密钥已加密保存');
+            }
         }
         
         // 更新全局API密钥
@@ -603,10 +686,6 @@ async function startGame() {
         startBtn.disabled = true;
         
         try {
-            // 临时更新API密钥用于生成问题
-            const originalKey = GEMINI_API_KEY;
-            window.GEMINI_API_KEY = apiKey;
-            
             const success = await generateAIQuestions();
             if (success && aiQuestions.length > 0) {
                 currentQuestions = aiQuestions;
@@ -638,6 +717,7 @@ async function startGame() {
 
 // 事件监听器
 aiModeToggle.addEventListener('change', handleAIModeToggle);
+if (clearApiKeyBtn) clearApiKeyBtn.addEventListener('click', clearSavedApiKey);
 startBtn.addEventListener('click', startGame);
 optionA.addEventListener('click', () => selectAnswer('A'));
 optionB.addEventListener('click', () => selectAnswer('B'));
@@ -664,5 +744,37 @@ window.addEventListener('click', (event) => {
     }
 });
 
-// 初始化游戏
-initGame();
+// 页面加载时初始化
+function initializeApp() {
+    // 尝试加载保存的API密钥
+    const savedApiKey = CryptoUtils.getApiKey();
+    if (savedApiKey) {
+        GEMINI_API_KEY = savedApiKey;
+        console.log('已加载保存的API密钥');
+        
+        // 如果有保存的密钥，可以自动启用AI模式
+        aiModeToggle.checked = true;
+        handleAIModeToggle();
+    }
+    
+    // 初始化游戏
+    initGame();
+}
+
+// 清除保存的API密钥
+function clearSavedApiKey() {
+    if (confirm('确定要清除保存的API密钥吗？清除后需要重新输入。')) {
+        CryptoUtils.clearApiKey();
+        GEMINI_API_KEY = '';
+        aiModeToggle.checked = false;
+        handleAIModeToggle();
+        console.log('已清除保存的API密钥');
+        alert('API密钥已清除');
+    }
+}
+
+// 添加清除API密钥的功能（可在控制台调用）
+window.clearSavedApiKey = clearSavedApiKey;
+
+// 页面加载完成后初始化应用
+initializeApp();
