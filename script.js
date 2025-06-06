@@ -336,7 +336,7 @@ const apiKeyInput = document.getElementById('api-key-input');
 const apiKeySaved = document.getElementById('api-key-saved');
 const clearApiKeyBtn = document.getElementById('clear-api-key');
 
-// 调用Gemini API生成问题
+// 调用Gemini API生成问题（通过代理服务器）
 async function generateAIQuestions() {
     const apiKey = window.GEMINI_API_KEY || GEMINI_API_KEY;
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
@@ -364,19 +364,24 @@ async function generateAIQuestions() {
             ]
         }`;
 
-        const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+        // 检测是否在本地环境
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const apiUrl = isLocal ? '/api/gemini-proxy' : 'https://your-vercel-app.vercel.app/api/gemini-proxy';
+        
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }]
+                prompt: prompt,
+                apiKey: apiKey
             })
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
         const data = await response.json();
         const generatedText = data.candidates[0].content.parts[0].text;
@@ -395,7 +400,7 @@ async function generateAIQuestions() {
     }
 }
 
-// 调用Gemini API生成个性化结果
+// 调用Gemini API生成个性化结果（通过代理服务器）
 async function generatePersonalizedResult(mbtiType, userAnswers) {
     const apiKey = window.GEMINI_API_KEY || GEMINI_API_KEY;
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
@@ -416,19 +421,24 @@ async function generatePersonalizedResult(mbtiType, userAnswers) {
             "tip": "今日小贴士文本"
         }`;
 
-        const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+        // 检测是否在本地环境
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const apiUrl = isLocal ? '/api/gemini-proxy' : 'https://your-vercel-app.vercel.app/api/gemini-proxy';
+        
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }]
+                prompt: prompt,
+                apiKey: apiKey
             })
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
         const data = await response.json();
         const generatedText = data.candidates[0].content.parts[0].text;

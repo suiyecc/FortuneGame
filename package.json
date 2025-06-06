@@ -1,0 +1,22 @@
+{
+  "name": "fortune-game",
+  "version": "1.0.0",
+  "description": "MBTI人格测试与星运占卜游戏",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python -m http.server 8000",
+    "build": "echo 'No build step required for static site'"
+  },
+  "keywords": [
+    "mbti",
+    "fortune",
+    "personality",
+    "test",
+    "astrology"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
