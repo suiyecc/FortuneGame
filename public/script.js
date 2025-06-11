@@ -366,18 +366,36 @@ async function generateAIQuestions() {
 
         // 检测是否在本地环境
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const apiUrl = isLocal ? '/api/gemini-proxy' : 'https://fortune-game-git-main-suiyeccs-projects.vercel.app/api/gemini-proxy';
         
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                prompt: prompt,
-                apiKey: apiKey
-            })
-        });
+        let response;
+        if (isLocal) {
+            // 本地环境直接调用Gemini API
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }]
+                })
+            });
+        } else {
+            // 生产环境使用代理
+            response = await fetch('https://fortune-game-git-main-suiyeccs-projects.vercel.app/api/gemini-proxy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    apiKey: apiKey
+                })
+            });
+        }
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -423,18 +441,36 @@ async function generatePersonalizedResult(mbtiType, userAnswers) {
 
         // 检测是否在本地环境
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const apiUrl = isLocal ? '/api/gemini-proxy' : 'https://fortune-game-git-main-suiyeccs-projects.vercel.app/api/gemini-proxy';
         
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                prompt: prompt,
-                apiKey: apiKey
-            })
-        });
+        let response;
+        if (isLocal) {
+            // 本地环境直接调用Gemini API
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }]
+                })
+            });
+        } else {
+            // 生产环境使用代理
+            response = await fetch('https://fortune-game-git-main-suiyeccs-projects.vercel.app/api/gemini-proxy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    apiKey: apiKey
+                })
+            });
+        }
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -481,12 +517,18 @@ function showQuestionPage() {
 }
 
 // 显示结果页
+
 function showResultPage() {
     welcomePage.classList.remove('active');
     questionPage.classList.remove('active');
     resultPage.classList.add('active');
-    calculateAndShowResult();
-}
+    // 确保异步函数正确调用
+    if (typeof calculateAndShowResult === 'function') {
+        calculateAndShowResult();
+    } else {
+        console.error('calculateAndShowResult函数未定义');
+    }
+} 
 
 // 加载问题
 function loadQuestion() {
@@ -581,49 +623,71 @@ function generateStars(rating) {
 
 // 计算并显示结果
 async function calculateAndShowResult() {
+    console.log('开始计算并显示结果');
     const mbtiType = calculateMBTI();
+    console.log('计算得到的MBTI类型:', mbtiType);
     const result = mbtiResults[mbtiType];
+    console.log('获取到的结果数据:', result);
+    
+    if (!result) {
+        console.error('未找到对应的MBTI结果数据:', mbtiType);
+        return;
+    }
     
     // 添加随机波动
     const fortuneVariation = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
     const finalFortune = Math.max(1, Math.min(5, result.baseFortune + fortuneVariation));
+    console.log('最终运势评分:', finalFortune);
     
     // 显示基础结果
+    console.log('开始设置DOM元素');
     document.getElementById('mbti-type').textContent = mbtiType;
     document.getElementById('mbti-title').textContent = result.title;
     document.getElementById('character-emoji').textContent = result.emoji;
     document.getElementById('fortune-stars').textContent = generateStars(finalFortune);
     document.getElementById('lucky-color').textContent = result.luckyColor;
     document.getElementById('lucky-item').textContent = result.luckyItem;
+    console.log('基础结果设置完成');
     
     // 尝试获取AI个性化结果
+    console.log('useAI状态:', useAI);
     if (useAI) {
+        console.log('使用AI模式，开始生成个性化结果');
         document.getElementById('love-fortune').textContent = '正在为你生成专属运势...';
         document.getElementById('work-fortune').textContent = '正在为你生成专属运势...';
         document.getElementById('daily-tip').textContent = '正在为你生成专属建议...';
         
         const personalizedResult = await generatePersonalizedResult(mbtiType, answers);
+        console.log('AI生成的个性化结果:', personalizedResult);
         if (personalizedResult) {
+            console.log('使用AI生成的结果');
             document.getElementById('love-fortune').textContent = personalizedResult.love;
             document.getElementById('work-fortune').textContent = personalizedResult.work;
             document.getElementById('daily-tip').textContent = personalizedResult.tip;
         } else {
             // 如果AI生成失败，使用默认结果
+            console.log('AI生成失败，使用默认结果');
             document.getElementById('love-fortune').textContent = result.love;
             document.getElementById('work-fortune').textContent = result.work;
             document.getElementById('daily-tip').textContent = result.tip;
         }
     } else {
         // 使用默认结果
+        console.log('使用默认结果');
         document.getElementById('love-fortune').textContent = result.love;
         document.getElementById('work-fortune').textContent = result.work;
         document.getElementById('daily-tip').textContent = result.tip;
     }
+    console.log('运势内容设置完成');
     
     // 添加幸运数字
+    console.log('开始添加幸运数字');
     const luckyNumber = Math.floor(Math.random() * 99) + 1;
+    console.log('生成的幸运数字:', luckyNumber);
     const currentTip = document.getElementById('daily-tip').textContent;
+    console.log('当前小贴士内容:', currentTip);
     document.getElementById('daily-tip').textContent = currentTip + ` 今日幸运数字：${luckyNumber}`;
+    console.log('calculateAndShowResult函数执行完成');
 }
 
 // 生成分享图片内容

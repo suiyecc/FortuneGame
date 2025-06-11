@@ -1,6 +1,20 @@
 // Google Gemini API配置
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
+// 动态运势系统实例
+let fortuneEngine = null;
+let userProfileManager = null;
+
+// 初始化动态运势系统
+function initializeDynamicFortuneSystem() {
+    if (typeof FortuneEngine !== 'undefined') {
+        fortuneEngine = new FortuneEngine();
+    }
+    if (typeof UserProfileManager !== 'undefined') {
+        userProfileManager = new UserProfileManager();
+    }
+}
+
 // API状态
 let useAI = false;
 let aiQuestions = [];
@@ -366,18 +380,35 @@ async function generateAIQuestions() {
 
         // 检测是否在本地环境
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const apiUrl = isLocal ? '/api/gemini-proxy' : 'https://fortune-game-git-main-suiyeccs-projects.vercel.app/api/gemini-proxy';
         
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                prompt: prompt,
-                apiKey: apiKey
-            })
-        });
+        let response;
+        if (isLocal) {
+            // 本地环境直接调用Gemini API
+            response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }]
+                })
+            });
+        } else {
+            // 生产环境使用代理服务器
+            const apiUrl = 'https://fortune-game-git-main-suiyeccs-projects.vercel.app/api/gemini-proxy';
+            response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    apiKey: apiKey
+                })
+            });
+        }
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -423,18 +454,35 @@ async function generatePersonalizedResult(mbtiType, userAnswers) {
 
         // 检测是否在本地环境
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const apiUrl = isLocal ? '/api/gemini-proxy' : 'https://fortune-game-git-main-suiyeccs-projects.vercel.app/api/gemini-proxy';
         
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                prompt: prompt,
-                apiKey: apiKey
-            })
-        });
+        let response;
+        if (isLocal) {
+            // 本地环境直接调用Gemini API
+            response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }]
+                })
+            });
+        } else {
+            // 生产环境使用代理服务器
+            const apiUrl = 'https://fortune-game-git-main-suiyeccs-projects.vercel.app/api/gemini-proxy';
+            response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    apiKey: apiKey
+                })
+            });
+        }
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -485,7 +533,13 @@ function showResultPage() {
     welcomePage.classList.remove('active');
     questionPage.classList.remove('active');
     resultPage.classList.add('active');
-    calculateAndShowResult();
+    // 确保异步函数正确调用
+    if (typeof calculateAndShowResult === 'function') {
+        calculateAndShowResult();
+    } else {
+        console.error('calculateAndShowResult函数未定义，使用备用方案');
+        showResult(); // 使用现有的showResult函数作为备用
+    }
 }
 
 // 加载问题
@@ -579,14 +633,35 @@ function generateStars(rating) {
     return fullStar.repeat(rating) + emptyStar.repeat(5 - rating);
 }
 
-// 计算并显示结果
-async function calculateAndShowResult() {
+// 显示结果
+async function showResult() {
     const mbtiType = calculateMBTI();
     const result = mbtiResults[mbtiType];
     
-    // 添加随机波动
-    const fortuneVariation = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
-    const finalFortune = Math.max(1, Math.min(5, result.baseFortune + fortuneVariation));
+    // 使用动态运势系统计算运势
+    let finalFortune = result.baseFortune;
+    let dynamicFortuneData = null;
+    
+    if (fortuneEngine) {
+        try {
+            dynamicFortuneData = fortuneEngine.calculateDynamicFortune(mbtiType, new Date(), mbtiResults);
+            finalFortune = dynamicFortuneData.overall.score;
+            
+            // 记录到用户档案
+            if (userProfileManager) {
+                userProfileManager.recordFortuneQuery(mbtiType, dynamicFortuneData);
+            }
+        } catch (error) {
+            console.warn('动态运势计算失败，使用默认运势:', error);
+            // 添加随机波动作为备选方案
+            const fortuneVariation = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+            finalFortune = Math.max(1, Math.min(5, result.baseFortune + fortuneVariation));
+        }
+    } else {
+        // 添加随机波动作为备选方案
+        const fortuneVariation = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+        finalFortune = Math.max(1, Math.min(5, result.baseFortune + fortuneVariation));
+    }
     
     // 显示基础结果
     document.getElementById('mbti-type').textContent = mbtiType;
@@ -596,7 +671,7 @@ async function calculateAndShowResult() {
     document.getElementById('lucky-color').textContent = result.luckyColor;
     document.getElementById('lucky-item').textContent = result.luckyItem;
     
-    // 尝试获取AI个性化结果
+    // 处理运势内容显示
     if (useAI) {
         document.getElementById('love-fortune').textContent = '正在为你生成专属运势...';
         document.getElementById('work-fortune').textContent = '正在为你生成专属运势...';
@@ -608,10 +683,60 @@ async function calculateAndShowResult() {
             document.getElementById('work-fortune').textContent = personalizedResult.work;
             document.getElementById('daily-tip').textContent = personalizedResult.tip;
         } else {
-            // 如果AI生成失败，使用默认结果
-            document.getElementById('love-fortune').textContent = result.love;
-            document.getElementById('work-fortune').textContent = result.work;
-            document.getElementById('daily-tip').textContent = result.tip;
+            // 如果AI生成失败，使用动态运势或默认结果
+            displayFortuneContent(result, dynamicFortuneData);
+        }
+    } else {
+        // 使用动态运势或默认结果
+        displayFortuneContent(result, dynamicFortuneData);
+    }
+    
+    // 添加幸运数字
+    const luckyNumber = Math.floor(Math.random() * 99) + 1;
+    const currentTip = document.getElementById('daily-tip').textContent;
+    document.getElementById('daily-tip').textContent = currentTip + ` 今日幸运数字：${luckyNumber}`;
+}
+
+// 显示运势内容（支持动态运势）
+function displayFortuneContent(result, dynamicFortuneData) {
+    if (dynamicFortuneData && dynamicFortuneData.dimensions) {
+        // 使用动态运势数据
+        const dimensions = dynamicFortuneData.dimensions;
+        
+        // 爱情运势
+        let loveText = result.love;
+        if (dimensions.love && dimensions.love.events && dimensions.love.events.length > 0) {
+            loveText = dimensions.love.events[0] + ` (运势指数: ${dimensions.love.score})`;
+        }
+        document.getElementById('love-fortune').textContent = loveText;
+        
+        // 工作运势
+        let workText = result.work;
+        if (dimensions.work && dimensions.work.events && dimensions.work.events.length > 0) {
+            workText = dimensions.work.events[0] + ` (运势指数: ${dimensions.work.score})`;
+        }
+        document.getElementById('work-fortune').textContent = workText;
+        
+        // 综合建议
+        let tipText = result.tip;
+        if (dynamicFortuneData.overall.trend) {
+            const trendText = {
+                'rising': '运势上升中，把握机会！',
+                'falling': '运势波动中，保持耐心。',
+                'stable': '运势平稳，稳步前进。'
+            };
+            tipText = tipText + ' ' + (trendText[dynamicFortuneData.overall.trend] || '');
+        }
+        document.getElementById('daily-tip').textContent = tipText;
+        
+        // 显示用户档案建议（如果有）
+        if (userProfileManager) {
+            const suggestions = userProfileManager.getPersonalizedSuggestions();
+            if (suggestions.length > 0) {
+                const suggestionText = suggestions[0].message;
+                const currentTip = document.getElementById('daily-tip').textContent;
+                document.getElementById('daily-tip').textContent = currentTip + ' 💡 ' + suggestionText;
+            }
         }
     } else {
         // 使用默认结果
@@ -619,11 +744,6 @@ async function calculateAndShowResult() {
         document.getElementById('work-fortune').textContent = result.work;
         document.getElementById('daily-tip').textContent = result.tip;
     }
-    
-    // 添加幸运数字
-    const luckyNumber = Math.floor(Math.random() * 99) + 1;
-    const currentTip = document.getElementById('daily-tip').textContent;
-    document.getElementById('daily-tip').textContent = currentTip + ` 今日幸运数字：${luckyNumber}`;
 }
 
 // 生成分享图片内容
@@ -725,37 +845,64 @@ async function startGame() {
     }
 }
 
-// 事件监听器
-aiModeToggle.addEventListener('change', handleAIModeToggle);
-if (clearApiKeyBtn) clearApiKeyBtn.addEventListener('click', clearSavedApiKey);
-startBtn.addEventListener('click', startGame);
-optionA.addEventListener('click', () => selectAnswer('A'));
-optionB.addEventListener('click', () => selectAnswer('B'));
-restartBtn.addEventListener('click', initGame);
-
-shareBtn.addEventListener('click', () => {
-    const shareContent = generateShareContent();
-    document.getElementById('share-image').innerHTML = shareContent;
-    shareModal.style.display = 'block';
-});
-
-closeModal.addEventListener('click', () => {
-    shareModal.style.display = 'none';
-});
-
-downloadBtn.addEventListener('click', () => {
-    alert('分享功能需要后端支持，这里仅为演示。实际项目中可以使用html2canvas生成图片。');
-});
-
-// 点击模态框外部关闭
-window.addEventListener('click', (event) => {
-    if (event.target === shareModal) {
-        shareModal.style.display = 'none';
+// 绑定事件监听器
+function bindEventListeners() {
+    // AI模式切换
+    if (aiModeToggle) {
+        aiModeToggle.addEventListener('change', handleAIModeToggle);
     }
-});
+    
+    // 清除API密钥按钮
+    if (clearApiKeyBtn) {
+        clearApiKeyBtn.addEventListener('click', clearSavedApiKey);
+        console.log('清除API密钥按钮事件已绑定');
+    } else {
+        console.warn('清除API密钥按钮未找到');
+    }
+    
+    // 游戏控制按钮
+    if (startBtn) startBtn.addEventListener('click', startGame);
+    if (optionA) optionA.addEventListener('click', () => selectAnswer('A'));
+    if (optionB) optionB.addEventListener('click', () => selectAnswer('B'));
+    if (restartBtn) restartBtn.addEventListener('click', initGame);
+    
+    // 分享相关
+    if (shareBtn) {
+        shareBtn.addEventListener('click', () => {
+            const shareContent = generateShareContent();
+            document.getElementById('share-image').innerHTML = shareContent;
+            shareModal.style.display = 'block';
+        });
+    }
+    
+    if (closeModal) {
+        closeModal.addEventListener('click', () => {
+            shareModal.style.display = 'none';
+        });
+    }
+    
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+            alert('分享功能需要后端支持，这里仅为演示。实际项目中可以使用html2canvas生成图片。');
+        });
+    }
+    
+    // 点击模态框外部关闭
+    window.addEventListener('click', (event) => {
+        if (event.target === shareModal) {
+            shareModal.style.display = 'none';
+        }
+    });
+}
 
 // 页面加载时初始化
 function initializeApp() {
+    // 初始化动态运势系统
+    initializeDynamicFortuneSystem();
+    
+    // 绑定事件监听器
+    bindEventListeners();
+    
     // 尝试加载保存的API密钥
     const savedApiKey = CryptoUtils.getApiKey();
     if (savedApiKey) {
@@ -763,28 +910,147 @@ function initializeApp() {
         console.log('已加载保存的API密钥');
         
         // 如果有保存的密钥，可以自动启用AI模式
-        aiModeToggle.checked = true;
-        handleAIModeToggle();
+        if (aiModeToggle) {
+            aiModeToggle.checked = true;
+            handleAIModeToggle();
+        }
     }
     
     // 初始化游戏
     initGame();
+    
+    // 显示动态运势系统状态
+    if (fortuneEngine && userProfileManager) {
+        console.log('✨ 动态运势系统已启用');
+    } else {
+        console.log('⚠️ 动态运势系统未加载，使用传统运势计算');
+    }
 }
 
 // 清除保存的API密钥
 function clearSavedApiKey() {
+    console.log('clearSavedApiKey函数被调用');
+    
     if (confirm('确定要清除保存的API密钥吗？清除后需要重新输入。')) {
-        CryptoUtils.clearApiKey();
-        GEMINI_API_KEY = '';
-        aiModeToggle.checked = false;
-        handleAIModeToggle();
-        console.log('已清除保存的API密钥');
-        alert('API密钥已清除');
+        try {
+            // 清除密钥
+            CryptoUtils.clearApiKey();
+            GEMINI_API_KEY = '';
+            
+            // 重新获取DOM元素以确保它们存在
+            const toggle = document.getElementById('ai-mode-toggle');
+            const apiKeySection = document.getElementById('api-key-section');
+            const apiKeySaved = document.getElementById('api-key-saved');
+            
+            if (toggle) {
+                toggle.checked = false;
+                console.log('AI模式开关已关闭');
+            } else {
+                console.warn('AI模式开关元素未找到');
+            }
+            
+            // 手动更新UI状态
+            if (apiKeySection) {
+                apiKeySection.style.display = 'none';
+            }
+            if (apiKeySaved) {
+                apiKeySaved.style.display = 'none';
+            }
+            
+            // 调用处理函数
+            if (typeof handleAIModeToggle === 'function') {
+                handleAIModeToggle();
+            }
+            
+            console.log('已清除保存的API密钥');
+            alert('API密钥已清除');
+        } catch (error) {
+            console.error('清除API密钥时发生错误:', error);
+            alert('清除密钥时发生错误，请刷新页面重试');
+        }
     }
 }
 
 // 添加清除API密钥的功能（可在控制台调用）
 window.clearSavedApiKey = clearSavedApiKey;
 
+// 计算并显示结果
+async function calculateAndShowResult() {
+    console.log('开始计算并显示结果');
+    const mbtiType = calculateMBTI();
+    console.log('计算得到的MBTI类型:', mbtiType);
+    const result = mbtiResults[mbtiType];
+    console.log('获取到的结果数据:', result);
+    
+    if (!result) {
+        console.error('未找到对应的MBTI结果数据:', mbtiType);
+        return;
+    }
+    
+    // 添加随机波动
+    const fortuneVariation = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+    const finalFortune = Math.max(1, Math.min(5, result.baseFortune + fortuneVariation));
+    console.log('最终运势评分:', finalFortune);
+    
+    // 显示基础结果
+    console.log('开始设置DOM元素');
+    document.getElementById('mbti-type').textContent = mbtiType;
+    document.getElementById('mbti-title').textContent = result.title;
+    document.getElementById('character-emoji').textContent = result.emoji;
+    document.getElementById('fortune-stars').textContent = generateStars(finalFortune);
+    document.getElementById('lucky-color').textContent = result.luckyColor;
+    document.getElementById('lucky-item').textContent = result.luckyItem;
+    console.log('基础结果设置完成');
+    
+    // 尝试获取AI个性化结果
+    console.log('useAI状态:', useAI);
+    if (useAI) {
+        console.log('使用AI模式，开始生成个性化结果');
+        document.getElementById('love-fortune').textContent = '正在为你生成专属运势...';
+        document.getElementById('work-fortune').textContent = '正在为你生成专属运势...';
+        document.getElementById('daily-tip').textContent = '正在为你生成专属建议...';
+        
+        const personalizedResult = await generatePersonalizedResult(mbtiType, answers);
+        console.log('AI生成的个性化结果:', personalizedResult);
+        if (personalizedResult) {
+            console.log('使用AI生成的结果');
+            document.getElementById('love-fortune').textContent = personalizedResult.love;
+            document.getElementById('work-fortune').textContent = personalizedResult.work;
+            document.getElementById('daily-tip').textContent = personalizedResult.tip;
+        } else {
+            // 如果AI生成失败，使用默认结果
+            console.log('AI生成失败，使用默认结果');
+            document.getElementById('love-fortune').textContent = result.love;
+            document.getElementById('work-fortune').textContent = result.work;
+            document.getElementById('daily-tip').textContent = result.tip;
+        }
+    } else {
+        // 使用默认结果
+        console.log('使用默认结果');
+        document.getElementById('love-fortune').textContent = result.love;
+        document.getElementById('work-fortune').textContent = result.work;
+        document.getElementById('daily-tip').textContent = result.tip;
+    }
+    console.log('运势内容设置完成');
+    
+    // 添加幸运数字
+    console.log('开始添加幸运数字');
+    const luckyNumber = Math.floor(Math.random() * 99) + 1;
+    console.log('生成的幸运数字:', luckyNumber);
+    const currentTip = document.getElementById('daily-tip').textContent;
+    console.log('当前小贴士内容:', currentTip);
+    document.getElementById('daily-tip').textContent = currentTip + ` 今日幸运数字：${luckyNumber}`;
+    console.log('calculateAndShowResult函数执行完成');
+}
+
 // 页面加载完成后初始化应用
-initializeApp();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM已加载完成，开始初始化应用');
+        initializeApp();
+    });
+} else {
+    // DOM已经加载完成
+    console.log('DOM已就绪，直接初始化应用');
+    initializeApp();
+}
